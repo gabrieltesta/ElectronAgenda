@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Agenda</title>
+        <link rel="stylesheet" href="style.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js" onload="window.$ = window.jQuery = module.exports;"></script>
+        <script type="text/javascript">
+            const electron = require('electron');
+            const remote = electron.remote;
+            let win;
+            var lstContatos = [];
+
+            function refresh(){
+                win = new remote.BrowserWindow({
+                    height: 800,
+                    width: 1200,
+                    frame: false,
+                    resizable: false,
+                    minWidth: 1200,
+                    minHeight: 800,
+                    show:false
+                });
+                win.loadURL('file://'+__dirname+'/index.html');
+                win.on('ready-to-show', () => {
+                    win.show();
+                    remote.getCurrentWindow().close();
+                });
+            }
+            function selectDB() {
+                var mysql = require('mysql');
+
+                // Add the credentials to access your database
+                var connection = mysql.createConnection({
+                    host     : 'localhost',
+                    user     : 'root',
+                    password : 'bcd127', // or the original password : 'apaswword'
+                    database : 'db_agenda'
+                });
+
+                // connect to mysql
+                connection.connect(function(err) {
+                    // in case of error
+                    if(err){
+                        console.log(err.code);
+                        console.log(err.fatal);
+                    }
+                });
+
+                // Perform a query
+                $query = 'SELECT * FROM tbl_contatos';
+                connection.query($query, function(err, rows, fields) {
+                    if(err){
+                        console.log("An error ocurred performing the query.");
+                        console.log(err);
+                        return;
+                    }
+                    var html = '';
+                    var select = '';
+                    for (var i = 0; i < rows.length; i++) {
+                        html += '<tr>';
+                        html += '<td>';
+                        html += rows[i].nome + ' ' + rows[i].sobrenome;
+                        html += '</td>';
+                        html += '<td>';
+                        html += rows[i].telefone;
+                        html += '</td>';
+                        html += '<td>';
+                        html += rows[i].celular;
+                        html += '</td>';
+                        html += '<td>';
+                        html += rows[i].email;
+                        html += '</td>';
+                        html += '</tr>';
+                        select += '<option value="'+rows[i].id_contato+'">'+rows[i].nome+' '+rows[i].sobrenome+'</option>';
+                        var c = {"id" : rows[i].id_contato,
+                                 "nome" : rows[i].nome,
+                                 "sobrenome" : rows[i].sobrenome,
+                                 "telefone" : rows[i].telefone,
+                                 "celular" : rows[i].celular,
+                                 "email" : rows[i].email};
+                        lstContatos.push(c);
+                    }
+                    console.log(html)
+                    $("option").after(select);
+                    $("#tblContatos tr").after(html);
+                });
+
+                // Close the connection
+                connection.end(function(){
+                    // The connection has been closed
+                });
+            }
+            selectDB();
+            function novoContato() {
+                var mysql = require('mysql');
+                // Add the credentials to access your database
+                var connection = mysql.createConnection({
+                    host     : 'localhost',
+                    user     : 'root',
+                    password : 'bcd127', // or the original password : 'apaswword'
+                    database : 'db_agenda'
+                });
+
+                // connect to mysql
+                connection.connect(function(err) {
+                    // in case of error
+                    if(err){
+                        console.log(err.code);
+                        console.log(err.fatal);
+                    }
+                });
+
+                var nome = $("[name='addNome']").val();
+                var sobrenome = $("[name='addSobrenome']").val();
+                var telefone = $("[name='addTelefone']").val();
+                var celular = $("[name='addCelular']").val();
+                var email = $("[name='addEmail']").val();
+
+                var contato = {"nome" : nome, "sobrenome" : sobrenome, "telefone" : telefone, "celular" : celular, "email" : email};
+
+                // Perform a query
+                connection.query('INSERT INTO tbl_contatos SET ?', contato, function(err, rows, fields) {
+                    if(err){
+                        console.log("An error ocurred performing the query.");
+                        console.log(err);
+                        return;
+                    }
+                    refresh();
+
+                    //remote.getCurrentWindow().close();
+                });
+
+                // Close the connection
+                connection.end(function(){
+                    // The connection has been closed
+                });
+            }
+            function editarContatoDB() {
+                var id = $('[name="slcEditNome"]').val();
+                var telefone = $("[name='editTelefone']").val();
+                var celular = $("[name='editCelular']").val();
+                var email = $("[name='editEmail']").val();
+
+                var mysql = require('mysql');
+                // Add the credentials to access your database
+                var connection = mysql.createConnection({
+                    host     : 'localhost',
+                    user     : 'root',
+                    password : 'bcd127', // or the original password : 'apaswword'
+                    database : 'db_agenda'
+                });
+
+                // connect to mysql
+                connection.connect(function(err) {
+                    // in case of error
+                    if(err){
+                        console.log(err.code);
+                        console.log(err.fatal);
+                    }
+                });
+
+                // Perform a query
+                connection.query('UPDATE tbl_contatos SET telefone = ?, celular = ?, email = ? WHERE id_contato = ?', [telefone, celular, email, id],  function(err, rows, fields) {
+                    if(err){
+                        console.log("An error ocurred performing the query.");
+                        console.log(err);
+                        return;
+                    }
+                    refresh();
+                });
+
+                // Close the connection
+                connection.end(function(){
+                    // The connection has been closed
+                });
+
+            }
+            function excluirContatoDB() {
+                var id = $('[name="slcDeletarNome"]').val();
+
+                if(id == null)
+                {
+                    alert('Escolha um contato!')
+                }
+                else
+                {
+                    var mysql = require('mysql');
+                    // Add the credentials to access your database
+                    var connection = mysql.createConnection({
+                        host     : 'localhost',
+                        user     : 'root',
+                        password : 'bcd127', // or the original password : 'apaswword'
+                        database : 'db_agenda'
+                    });
+
+                    // connect to mysql
+                    connection.connect(function(err) {
+                        // in case of error
+                        if(err){
+                            console.log(err.code);
+                            console.log(err.fatal);
+                        }
+                    });
+
+                    // Perform a query
+                    connection.query('DELETE FROM tbl_contatos WHERE ?', [{"id_contato" : id}],  function(err, rows, fields) {
+                        if(err){
+                            console.log("An error ocurred performing the query.");
+                            console.log(err);
+                            return;
+                        }
+                        refresh();
+                    });
+
+                    // Close the connection
+                    connection.end(function(){
+                        // The connection has been closed
+                    });
+                }    
+            }
+            function abrirMenu() {
+                document.getElementById('sidebarClosed').style.display = "none";
+                document.getElementById('sidebarOpen').style.display = "block";
+                $("#sidebarOpen").animate({ marginLeft: '+=150px', duration: 500, queue: false});
+                $("#menu").animate({opacity: 1, duration: 500, queue: false});
+                $("#tblContatos").animate({width: 700, duration: 500, queue: false});
+                $("#tbl").animate({width: 700, duration: 500, queue: false});
+                $("#adicionarContatoBox").animate({width: '-=150px', duration: 500, queue: false});
+
+            }
+            function fecharMenu() {
+                $("#tbl").animate({width: 850, duration: 500, queue: false});
+                $("#tblContatos").animate({width: 850, duration: 500, queue: false});
+                $("#adicionarContatoBox").animate({width: '+=150px', duration: 500, queue: false});
+                $("#menu").animate({ opacity: 0, duration: 500, queue: false});
+                $("#sidebarOpen").animate({ marginLeft: '-=150px', duration: 500, queue: false}, 500,  function(){
+                    document.getElementById('sidebarOpen').style.display = "none";
+                    document.getElementById('sidebarClosed').style.display = "block";
+                });
+            }
+            function abrirAdicionar() {
+                document.getElementById('deletarContatoBox').style.display = "none";
+                document.getElementById('editarContatoBox').style.display = "none";
+                document.getElementById('adicionarContatoBox').style.display = "block";
+
+            }
+            function abrirEditar() {
+                document.getElementById('adicionarContatoBox').style.display = "none";
+                document.getElementById('deletarContatoBox').style.display = "none";
+                document.getElementById('editarContatoBox').style.display = "block";
+            }
+            function abrirDeletar() {
+                document.getElementById('adicionarContatoBox').style.display = "none";
+                document.getElementById('editarContatoBox').style.display = "none";
+                document.getElementById('deletarContatoBox').style.display = "block";
+            }
+            $(function(ready){
+                $('select').change(function() {
+                    var id = $('select').val();
+                    for (var i = 0; i < lstContatos.length; i++) {
+                        if (id == lstContatos[i].id) {
+                            $('[name="editTelefone"]').val(lstContatos[i].telefone);
+                            $('[name="editCelular"]').val(lstContatos[i].celular);
+                            $('[name="editEmail"]').val(lstContatos[i].email);
+                        }
+                    }
+                });
+            });
+
+
+    </script>
+    </head>
+    <body>
+        <div id="toolbar">
+            <div id="logo">
+                <img src="Imagens/logo.png" alt="Logo">
+            </div>
+            <h3>Agenda</h3>
+            <div id="fechar">
+                <img src="Imagens/fechar.png" alt="fechar" onclick="window.close()">
+            </div>
+        </div>
+        <div id="conteudo">
+            <div id="sidebarClosed" style="display: none;">
+                <div id="sidebarClosedExpand" onclick="abrirMenu()">
+                    <img src="Imagens/right-arrow.png" alt="">
+                </div>
+            </div>
+            <div id="sidebarOpen" style="display: block; margin-left: 0px;">
+                <ul id="menu">
+                    <li>Contatos</li>
+                    <li>Compromissos</li>
+                </ul>
+                <div id="sidebarOpenExpand" onclick="fecharMenu()">
+                    <img src="Imagens/right-arrow.png" alt="">
+                </div>
+            </div>
+            <div id="tbl">
+                <table id="tblContatos">
+                    <tr>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th>Celular</th>
+                        <th>Email</th>
+                    </tr>
+                </table>
+            </div>
+            <div class="btn" style="margin-left:150px;" onclick="abrirAdicionar()">
+                <img src="Imagens/add.png" alt="">
+                <span>Adicionar</span>
+            </div>
+            <div class="btn" onclick="abrirEditar()">
+                <img src="Imagens/edit.png" alt="">
+                <span>Editar</span>
+            </div>
+            <div class="btn" onclick="abrirDeletar()">
+                <img src="Imagens/delete.png" alt="">
+                <span>Excluir</span>
+            </div>
+
+            <div id="adicionarContatoBox" style="display: block;">
+                <form target="hiddenFrame" onsubmit="novoContato()">
+                <table id="tblAddContato">
+                    <tr>
+                        <th>Nome*</th>
+                        <td><input type="text" name="addNome" placeholder="João" maxlength="50" required oninvalid="setCustomValidity('Este campo é obrigatório.')" oninput="setCustomValidity('')" ></td>
+                    </tr>
+                    <tr>
+                        <th>Sobrenome*</th>
+                        <td><input type="text" name="addSobrenome" placeholder="Silva" maxlength="50" required></td>
+                    </tr>
+                    <tr>
+                        <th>Telefone*</th>
+                        <td><input type="tel" name="addTelefone" placeholder="11 12345678" maxlength="20" required></td>
+                    </tr>
+                    <tr>
+                        <th>Celular</th>
+                        <td><input type="tel" name="addCelular" placeholder="11 912345678" maxlength="20"></td>
+                    </tr>
+                    <tr>
+                        <th>Email*</th>
+                        <td><input type="email" name="addEmail" placeholder="joaosilva@exemplo.com" required></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><input type="submit" name="adicionarContato" value="Adicionar Contato"></td>
+                    </tr>
+
+                </table>
+                </form>
+            </div>
+            <div id="editarContatoBox" style="display: none;" >
+                <form target="hiddenFrame" onsubmit="editarContatoDB()">
+                <table id="tblEditContato">
+                    <tr>
+                        <th>Nome*</th>
+                        <td>
+                            <select name="slcEditNome">
+                                <option selected disabled>Selecione um nome</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Telefone*</th>
+                        <td><input type="tel" name="editTelefone" placeholder="11 12345678" maxlength="20" required></td>
+                    </tr>
+                    <tr>
+                        <th>Celular</th>
+                        <td><input type="tel" name="editCelular" placeholder="11 912345678" maxlength="20"></td>
+                    </tr>
+                    <tr>
+                        <th>Email*</th>
+                        <td><input type="email" name="editEmail" placeholder="joaosilva@exemplo.com" required></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><input type="submit" name="editarContato" value="Editar Contato"></td>
+                    </tr>
+
+                </table>
+                </form>
+            </div>
+            <div id="deletarContatoBox" style="display: none;">
+                <form target="hiddenFrame" onsubmit="excluirContatoDB()">
+                <table id="tblDeletarContato">
+                    <tr>
+                        <th>Nome*</th>
+                        <td>
+                            <select name="slcDeletarNome">
+                                <option selected disabled>Selecione um nome</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><input type="submit" name="excluirContato" value="Excluir Contato"></td>
+                    </tr>
+
+                </table>
+            </form>
+            </div>
+        </div>
+        <iframe name="hiddenFrame" width="0" height="0" border="0" style="display: none;"></iframe>
+    </body>
+</html>
