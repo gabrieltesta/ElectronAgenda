@@ -4,13 +4,36 @@
         <meta charset="utf-8">
         <title>Agenda</title>
         <link rel="stylesheet" href="style.css">
+        <!--  Importação de JQuery em app electron -->
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js" onload="window.$ = window.jQuery = module.exports;"></script>
         <script type="text/javascript">
+            //Importação de funções electron na página html
             const electron = require('electron');
             const remote = electron.remote;
             let win;
             var lstContatos = [];
 
+            var mysql = require('mysql');
+            var con;
+
+            function criarConexaoDB() {
+                con = mysql.createConnection({
+                    host     : 'localhost',
+                    user     : 'root',
+                    password : 'bcd127',
+                    database : 'db_agenda'
+                });
+                con.connect(function(err) {
+                    if(err){
+                        console.log(err.code);
+                        console.log(err.fatal);
+                    }
+                });
+            }
+
+            //Criação de nova janela que só é visualizada após estiver
+            //completamente carregada para evitar o 'flash' de um refresh
+            //convencional
             function refresh(){
                 win = new remote.BrowserWindow({
                     height: 800,
@@ -27,34 +50,21 @@
                     remote.getCurrentWindow().close();
                 });
             }
+
+            //Função faz o select no banco de dados mysql de todos os contatos
             function selectDB() {
-                var mysql = require('mysql');
-
-                // Add the credentials to access your database
-                var connection = mysql.createConnection({
-                    host     : 'localhost',
-                    user     : 'root',
-                    password : 'bcd127', // or the original password : 'apaswword'
-                    database : 'db_agenda'
-                });
-
-                // connect to mysql
-                connection.connect(function(err) {
-                    // in case of error
-                    if(err){
-                        console.log(err.code);
-                        console.log(err.fatal);
-                    }
-                });
-
-                // Perform a query
+                criarConexaoDB();
                 $query = 'SELECT * FROM tbl_contatos';
-                connection.query($query, function(err, rows, fields) {
+                con.query($query, function(err, rows, fields) {
                     if(err){
-                        console.log("An error ocurred performing the query.");
+                        console.log("Houve um erro no SELECT");
                         console.log(err);
                         return;
                     }
+
+                    //Criação de uma linha para a tabela HTML com os dados
+                    //provenientes do banco de dados e preenchimento de selects
+                    //para edição e exclusão de registros
                     var html = '';
                     var select = '';
                     for (var i = 0; i < rows.length; i++) {
@@ -85,140 +95,88 @@
                     $("option").after(select);
                     $("#tblContatos tr").after(html);
                 });
-
-                // Close the connection
-                connection.end(function(){
-                    // The connection has been closed
-                });
+                con.end(function(){});
             }
             selectDB();
+
+            //Função faz o insert no banco de dados mysql
             function novoContato() {
-                var mysql = require('mysql');
-                // Add the credentials to access your database
-                var connection = mysql.createConnection({
-                    host     : 'localhost',
-                    user     : 'root',
-                    password : 'bcd127', // or the original password : 'apaswword'
-                    database : 'db_agenda'
-                });
-
-                // connect to mysql
-                connection.connect(function(err) {
-                    // in case of error
-                    if(err){
-                        console.log(err.code);
-                        console.log(err.fatal);
-                    }
-                });
-
+                criarConexaoDB();
+                //Coleta os dados dos inputs HTML
                 var nome = $("[name='addNome']").val();
                 var sobrenome = $("[name='addSobrenome']").val();
                 var telefone = $("[name='addTelefone']").val();
                 var celular = $("[name='addCelular']").val();
                 var email = $("[name='addEmail']").val();
 
-                var contato = {"nome" : nome, "sobrenome" : sobrenome, "telefone" : telefone, "celular" : celular, "email" : email};
+                //Cria um objeto para insert via prepared statement
+                var contato = {"nome" : nome,
+                               "sobrenome" : sobrenome,
+                               "telefone" : telefone,
+                               "celular" : celular,
+                               "email" : email};
 
-                // Perform a query
-                connection.query('INSERT INTO tbl_contatos SET ?', contato, function(err, rows, fields) {
+                con.query('INSERT INTO tbl_contatos SET ?', contato, function(err, rows, fields) {
                     if(err){
-                        console.log("An error ocurred performing the query.");
+                        console.log("Um erro ocorreu no INSERT.");
                         console.log(err);
                         return;
                     }
                     refresh();
-
-                    //remote.getCurrentWindow().close();
                 });
-
-                // Close the connection
-                connection.end(function(){
-                    // The connection has been closed
-                });
+                con.end(function(){});
             }
+
+            //Função faz o update no banco de dados mysql
             function editarContatoDB() {
+                //Coleta os dados dos inputs HTML
                 var id = $('[name="slcEditNome"]').val();
                 var telefone = $("[name='editTelefone']").val();
                 var celular = $("[name='editCelular']").val();
                 var email = $("[name='editEmail']").val();
 
-                var mysql = require('mysql');
-                // Add the credentials to access your database
-                var connection = mysql.createConnection({
-                    host     : 'localhost',
-                    user     : 'root',
-                    password : 'bcd127', // or the original password : 'apaswword'
-                    database : 'db_agenda'
-                });
+                criarConexaoDB();
 
-                // connect to mysql
-                connection.connect(function(err) {
-                    // in case of error
+                con.query('UPDATE tbl_contatos SET telefone = ?, celular = ?, email = ? WHERE id_contato = ?', [telefone, celular, email, id],  function(err, rows, fields) {
                     if(err){
-                        console.log(err.code);
-                        console.log(err.fatal);
-                    }
-                });
-
-                // Perform a query
-                connection.query('UPDATE tbl_contatos SET telefone = ?, celular = ?, email = ? WHERE id_contato = ?', [telefone, celular, email, id],  function(err, rows, fields) {
-                    if(err){
-                        console.log("An error ocurred performing the query.");
+                        console.log("Um erro ocorreu no UPDATE.");
                         console.log(err);
                         return;
                     }
                     refresh();
                 });
-
-                // Close the connection
-                connection.end(function(){
-                    // The connection has been closed
-                });
+                connection.end(function(){});
 
             }
+
+            //Função faz o DELETE no banco de dados mysql
             function excluirContatoDB() {
+                //Coleta o ID do contato no select HTML
                 var id = $('[name="slcDeletarNome"]').val();
 
+                //Verifica se um contato foi selecionado
                 if(id == null)
                 {
-                    alert('Escolha um contato!')
+                    alert('Escolha um contato!');
                 }
                 else
                 {
-                    var mysql = require('mysql');
-                    // Add the credentials to access your database
-                    var connection = mysql.createConnection({
-                        host     : 'localhost',
-                        user     : 'root',
-                        password : 'bcd127', // or the original password : 'apaswword'
-                        database : 'db_agenda'
-                    });
+                    criarConexaoDB();
 
-                    // connect to mysql
-                    connection.connect(function(err) {
-                        // in case of error
+                    con.query('DELETE FROM tbl_contatos WHERE ?', [{"id_contato" : id}],  function(err, rows, fields) {
                         if(err){
-                            console.log(err.code);
-                            console.log(err.fatal);
-                        }
-                    });
-
-                    // Perform a query
-                    connection.query('DELETE FROM tbl_contatos WHERE ?', [{"id_contato" : id}],  function(err, rows, fields) {
-                        if(err){
-                            console.log("An error ocurred performing the query.");
+                            console.log("Um erro ocorreu no DELETE.");
                             console.log(err);
                             return;
                         }
                         refresh();
                     });
 
-                    // Close the connection
-                    connection.end(function(){
-                        // The connection has been closed
-                    });
-                }    
+                    connection.end(function(){});
+                }
             }
+
+            //Função abre o menu lateral
             function abrirMenu() {
                 document.getElementById('sidebarClosed').style.display = "none";
                 document.getElementById('sidebarOpen').style.display = "block";
@@ -229,6 +187,8 @@
                 $("#adicionarContatoBox").animate({width: '-=150px', duration: 500, queue: false});
 
             }
+
+            //Função fecha o menu lateral
             function fecharMenu() {
                 $("#tbl").animate({width: 850, duration: 500, queue: false});
                 $("#tblContatos").animate({width: 850, duration: 500, queue: false});
@@ -239,22 +199,31 @@
                     document.getElementById('sidebarClosed').style.display = "block";
                 });
             }
+
+            //Função abre a seção de adicionar um contato
             function abrirAdicionar() {
                 document.getElementById('deletarContatoBox').style.display = "none";
                 document.getElementById('editarContatoBox').style.display = "none";
                 document.getElementById('adicionarContatoBox').style.display = "block";
 
             }
+
+            //Função abre a seção de editar um contato
             function abrirEditar() {
                 document.getElementById('adicionarContatoBox').style.display = "none";
                 document.getElementById('deletarContatoBox').style.display = "none";
                 document.getElementById('editarContatoBox').style.display = "block";
             }
+
+            //Função abre a seção de excluir um contato
             function abrirDeletar() {
                 document.getElementById('adicionarContatoBox').style.display = "none";
                 document.getElementById('editarContatoBox').style.display = "none";
                 document.getElementById('deletarContatoBox').style.display = "block";
             }
+
+            //Função preenche os inputs HTML de edição caso um contato
+            //ser selecionado no select
             $(function(ready){
                 $('select').change(function() {
                     var id = $('select').val();
@@ -268,10 +237,10 @@
                 });
             });
 
-
     </script>
     </head>
     <body>
+        <!-- Barra superior-->
         <div id="toolbar">
             <div id="logo">
                 <img src="Imagens/logo.png" alt="Logo">
@@ -281,21 +250,28 @@
                 <img src="Imagens/fechar.png" alt="fechar" onclick="window.close()">
             </div>
         </div>
+        <!---->
+        <!-- Conteúdo da página -->
         <div id="conteudo">
+            <!--Menu lateral fechado-->
             <div id="sidebarClosed" style="display: none;">
                 <div id="sidebarClosedExpand" onclick="abrirMenu()">
-                    <img src="Imagens/right-arrow.png" alt="">
+                    <img src="Imagens/right-arrow.png" alt="Abrir menu">
                 </div>
             </div>
+            <!---->
+            <!--Menu lateral aberto-->
             <div id="sidebarOpen" style="display: block; margin-left: 0px;">
                 <ul id="menu">
                     <li>Contatos</li>
                     <li>Compromissos</li>
                 </ul>
                 <div id="sidebarOpenExpand" onclick="fecharMenu()">
-                    <img src="Imagens/right-arrow.png" alt="">
+                    <img src="Imagens/right-arrow.png" alt="Fechar menu">
                 </div>
             </div>
+            <!---->
+            <!--Tabela de contatos-->
             <div id="tbl">
                 <table id="tblContatos">
                     <tr>
@@ -306,6 +282,8 @@
                     </tr>
                 </table>
             </div>
+            <!---->
+            <!--Menu de seleção de função-->
             <div class="btn" style="margin-left:150px;" onclick="abrirAdicionar()">
                 <img src="Imagens/add.png" alt="">
                 <span>Adicionar</span>
@@ -318,7 +296,8 @@
                 <img src="Imagens/delete.png" alt="">
                 <span>Excluir</span>
             </div>
-
+            <!---->
+            <!--Seção de adição de contato-->
             <div id="adicionarContatoBox" style="display: block;">
                 <form target="hiddenFrame" onsubmit="novoContato()">
                 <table id="tblAddContato">
@@ -349,6 +328,8 @@
                 </table>
                 </form>
             </div>
+            <!---->
+            <!--Seção de edição de contato-->
             <div id="editarContatoBox" style="display: none;" >
                 <form target="hiddenFrame" onsubmit="editarContatoDB()">
                 <table id="tblEditContato">
@@ -379,6 +360,8 @@
                 </table>
                 </form>
             </div>
+            <!---->
+            <!--Seção de exclusão de contato-->
             <div id="deletarContatoBox" style="display: none;">
                 <form target="hiddenFrame" onsubmit="excluirContatoDB()">
                 <table id="tblDeletarContato">
@@ -397,7 +380,10 @@
                 </table>
             </form>
             </div>
+            <!---->
         </div>
+        <!--Tag iframe para evitar que os formulários HTML redirecionem ou
+        atualizem a página HTML-->
         <iframe name="hiddenFrame" width="0" height="0" border="0" style="display: none;"></iframe>
     </body>
 </html>

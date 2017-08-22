@@ -1,5 +1,6 @@
 const {app, BrowserWindow, Menu} = require('electron');
 
+//Criação da janela inicial
 let window;
 function createMainWindow(){
     window = new BrowserWindow({
@@ -9,15 +10,18 @@ function createMainWindow(){
         resizable: false,
         minWidth: 1200,
         minHeight: 800,
-        show: false,
-        movable: true
+        show: false
     });
     window.loadURL('file://' + __dirname + '/index.html');
+
+    //Apresenta a janela apenas após seu carregamento
     window.on('ready-to-show', () => {
         window.show();
     });
 }
 
+//Função cria menu padrão da aplicação para funcionamento similar em todo
+//sistema operacional
 function createMainMenu(){
     const template = [
       {
@@ -105,17 +109,23 @@ function createMainMenu(){
         Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+
+//Função cria o menu e a janela principal quando a aplicação está pronta
 app.on('ready', () => {
     createMainMenu();
     createMainWindow();
 });
 
+//Função cria apenas a janela principal caso a aplicação esteja ativa mas sem
+//janelas ativas(para sistemas darwin)
 app.on('activate', () =>{
     if (!window){
         createMainWindow();
     }
 });
 
+//Caso todas as janelas estejam fechadas, desliga a aplicação (exceto sistemas
+//darwin)
 app.on('window-all-closed', ()=>{
     if (process.platform !== 'darwin'){
         app.quit();
